@@ -7,29 +7,43 @@ This project builds a complete infrastructure pipeline to align **Llama-3.1-8B-I
 
 The pipeline spans Supervised Fine-Tuning (SFT), Direct Preference Optimization (DPO), LoRA adapter merging, and dynamic 4-bit quantized serving via a headless vLLM API.
 
-##  System Architecture
 ```mermaid
 graph TD
-    A[(Raw SQL Dataset)] -->|Formatting| B(ChatML Messages)
-    B --> C{QLoRA SFT Training}
-    C -->|Adapter Weights| D(SFT Model)
-    
-    D --> E[Heuristic Corruption Engine]
-    E -->|Chosen / Rejected Pairs| F{DPO Alignment}
-    F -->|KL-Divergence| G(DPO Adapters)
-    
-    G --> H[Tensor Merging]
-    I[(Llama 3.1 Base 16-bit)] --> H
-    H -->|Merged .safetensors| J[Local Disk Storage]
-    
-    J --> K{vLLM Engine}
-    K -->|bitsandbytes 4-bit| L[PagedAttention KV Cache]
-    L --> M((Ngrok HTTPS Tunnel))
-    M --> N[Public REST API]
-    
-    style C fill:#f9f,stroke:#333,stroke-width:2px
-    style F fill:#f9f,stroke:#333,stroke-width:2px
-    style K fill:#bbf,stroke:#333,stroke-width:2px
+    subgraph Phase 1: Data Engineering
+        A[(b-mc2/sql-create-context)] -->|Format| B(ChatML Messages)
+        B --> C[Regex Heuristic Corruption]
+        C -->|Generate Negative Pairs| D(DPO Dataset)
+    end
+
+    subgraph Phase 2: Base Model Initialization
+        E[(Llama 3.1 8B Instruct)] -->|bitsandbytes 4-bit| F[Base Model in VRAM]
+        F --> G[Inject LoRA Adapters]
+    end
+
+    subgraph Phase 3: Two-Stage Training
+        B -->|Target Format| H{3.1: SFT Training}
+        G -->|Trainable Weights| H
+        H -->|SFT Adapters| I{3.2: DPO Alignment}
+        D -->|Chosen/Rejected Pairs| I
+        I -->|KL-Divergence| J(Final DPO Adapters)
+    end
+
+    subgraph Phase 4: Tensor Merging & Evaluation
+        J --> K[Unsloth Tensor Merging]
+        E -->|Base Weights| K
+        K -->|Merged 16-bit| L(Stress Tests & Batch Eval)
+        L --> M[(Local Disk .safetensors)]
+    end
+
+    subgraph Phase 5: Production Deployment
+        M --> N{vLLM Serving Engine}
+        N -->|PagedAttention| O((PyNgrok HTTPS Tunnel))
+        O --> P[OpenAI-Compatible REST API Endpoint]
+    end
+
+    style H fill:#f9f,stroke:#333,stroke-width:2px
+    style I fill:#f9f,stroke:#333,stroke-width:2px
+    style N fill:#bbf,stroke:#333,stroke-width:2px
 ```
 
 ##  Tech Stack
