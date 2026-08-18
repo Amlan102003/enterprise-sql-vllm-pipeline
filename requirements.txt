@@ -1,0 +1,20 @@
+# Data Processing & Utilities
+datasets
+pandas
+requests
+
+# Hugging Face Core Stack
+transformers
+huggingface_hub
+accelerate
+
+# Unsloth Training & Alignment Stack (Direct from GitHub)
+unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git
+xformers
+trl
+peft
+bitsandbytes
+
+# Production Serving & Networking
+vllm
+pyngrok
